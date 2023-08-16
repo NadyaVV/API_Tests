@@ -3,7 +3,7 @@ timeout(10) {
         stage('Checkout') {
             checkout scm
         }
-        stage("Run tests") {
+        stage("Run API tests") {
             def exitCode = sh(
                     returnStatus: true,
                     script: """
@@ -14,7 +14,7 @@ timeout(10) {
                 currentBuild.result = 'UNSTABLE'
             }
         }
-        stage('Publish artifacts') {
+        stage('Publish API artifacts') {
             allure([results          : [[
                                                 path: 'allure-results'
                                         ]],
