@@ -1,47 +1,42 @@
 timeout(5) {
     node('maven') {
-        stage('Checkout') {
-            checkout scm
-        }
-        stage('Run tests') {
-            def jobs = [:]
-
-            jobs['ui-tests'] = {
-                node('maven') {
-                    stage('Ui tests on chrome') {
-                        build(job: 'ui-tests',
-                                parameters: [
-                                        string(name: 'BRANCH', value: BROWSER_NAME),
-                                        string(name: 'BASE_URL', value: BASE_URL),
-                                        string(name: 'BROWSER', value: BROWSER_NAME),
-                                        string(name: 'BROWSER_VERSION', value: BROWSER_VERSION),
-                                        string(name: 'GRID_URL', value: GRID_URL)
-                                ])
+        stages {
+            stage('Checkout') {
+                checkout scm
+            }
+            stage('Run Tests') {
+                parallel {
+                    stage('Run UI tests') {
+                        def exitCode = sh(
+                                returnStatus: true,
+                                script: """
+                    mvn test -Dbrowser=$BROWSER_NAME -Dbrowser.version=$BROWSER_VERSION -Dwebdriver.base.url=$BASE_URL -Dwebdriver.remote.url=$GRID_URL
+                    """
+                        )
+                        if (exitCode != 0) {
+                            currentBuild.result = 'UNSTABLE'
+                        }
+                    }
+                    stage('Run API tests') {
+                        def exitCode = sh(
+                                returnStatus: true,
+                                script: """
+                    mvn test -Dbrowser=$BROWSER_NAME -Dbrowser.version=$BROWSER_VERSION -Dwebdriver.base.url=$BASE_URL -Dwebdriver.remote.url=$GRID_URL
+                    """
+                        )
+                        if (exitCode != 0) {
+                            currentBuild.result = 'UNSTABLE'
+                        }
                     }
                 }
             }
-            jobs['api-tests'] = {
-                node('maven') {
-                    stage('API tests on chrome') {
-                        build(job: 'api-tests',
-                                parameters: [
-                                        string(name: 'BRANCH', value: BROWSER_NAME),
-                                        string(name: 'BASE_URL', value: BASE_URL),
-                                        string(name: 'BROWSER', value: BROWSER_NAME),
-                                        string(name: 'BROWSER_VERSION', value: BROWSER_VERSION),
-                                        string(name: 'GRID_URL', value: GRID_URL)
-                                ])
-                    }
-                }
+            stage('Publish artifacts') {
+                allure([results          : [[
+                                                    path: 'allure-results'
+                                            ]],
+                        disabled         : false,
+                        reportBuildPolicy: 'ALWAYS'])
             }
-            parallel jobs
-        }
-        stage('Publish API artifacts') {
-            allure([results          : [[
-                                                path: 'allure-results'
-                                        ]],
-                    disabled         : false,
-                    reportBuildPolicy: 'ALWAYS'])
         }
     }
 }
